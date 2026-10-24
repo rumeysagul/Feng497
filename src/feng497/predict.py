@@ -3,14 +3,15 @@
 import argparse
 import json
 import math
-from pathlib import Path
 import joblib
 import numpy as np
 import pandas as pd
 from threadpoolctl import threadpool_limits
 
+from .paths import MODELS_DIR
 
-def main():
+
+def main(argv=None):
     parser = argparse.ArgumentParser(description=(
         "300x100x2 mm çelik plakada maksimum von Mises tahmini. "
         "Sabit sigma_x=100 MPa, sigma_y=lam*100 MPa."))
@@ -20,7 +21,7 @@ def main():
     parser.add_argument("--ey", type=float, required=True,
                         help="Plaka merkezinden dikey kayma [mm]; yukarı pozitif")
     parser.add_argument("--lam", type=float, required=True, help="sigma_y / sigma_x")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if not all(math.isfinite(v) for v in [args.cap, args.ex, args.ey, args.lam]):
         parser.error("Tüm girdiler sonlu sayılar olmalı.")
@@ -32,11 +33,11 @@ def main():
     if min(yatay_bosluk, dikey_bosluk) <= 0:
         parser.error("Delik plaka sınırına değiyor veya dışına taşıyor.")
 
-    klasor = Path(__file__).resolve().parent / "outputs" / "06_son_test"
+    klasor = MODELS_DIR
     model_yolu = klasor / "maksimum_von_mises_gpr.joblib"
     bilgi_yolu = klasor / "model_bilgileri.json"
     if not model_yolu.exists() or not bilgi_yolu.exists():
-        parser.error("Model bulunamadı. Önce 06_son_test_ve_kaydet.py çalıştırılmalı.")
+        parser.error("Model bulunamadı. Önce python -m feng497 train çalıştırılmalı.")
     bilgiler = json.loads(bilgi_yolu.read_text(encoding="utf-8"))
     # Fiziksel uzunluklar plaka genişliği W=100 mm'ye bölünür.
     degerler = {"dw": args.cap / 100.0, "exw": args.ex / 100.0,

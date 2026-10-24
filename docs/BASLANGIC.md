@@ -7,19 +7,22 @@ Girdiler: `dw`, `exw`, `eyw`, `lam`.
 Hedef: `max_von_mises_MPa = 100 * kt_global`.
 `kt` delik kenarının maksimumudur; bizim hedefimiz `kt_global` üzerinden hesaplanır.
 
-Terminalde şu komutları sırayla çalıştır:
+Önce kök dizindeki `README.md` kurulumunu tamamla. Aşağıdaki `python`
+komutları proje sanal ortamında çalıştırılmalıdır. Windows’ta `python` yerine
+`.venv\Scripts\python.exe`, macOS/Linux’ta `.venv/bin/python` kullanılabilir.
+Komutlar kurulmuş paket sayesinde farklı çalışma dizinlerinden de çalışır.
+
+İlk komut:
 
 ```bash
-cd /Users/rumeysagul/Documents/ChatGPT/feng497
-.venv/bin/python 01_veriyi_tani.py
+python -m feng497 inspect
 ```
 
 `.venv`, bu projeye ait Python ve kütüphaneleri tutar.
-Ortamı yeniden oluşturmak gerekirse:
+Paketi yeniden kurmak gerekirse:
 
 ```bash
-python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt
+python -m pip install -e .
 ```
 
 Kodun anlamı:
@@ -38,17 +41,17 @@ Hazır test gruplarını koruyacağız. Model seçimi ve ayarları yalnızca 300
 örneği içinde çapraz doğrulama ile yapılacak. Son değerlendirmede 50 interpolasyon
 ve 30 ekstrapolasyon örneğini ayrı raporlayacağız.
 
-README'deki Kt başarıları delik kenarı hedefi içindir; kendi global maksimum
+Veri sağlayıcısının `data/raw/plate_hole_dataset_v1/README.md` dosyasındaki Kt başarıları delik kenarı hedefi içindir; kendi global maksimum
 hedefimizin başarısı olarak kullanılamaz. Fiziksel geçerlilik pakette tanımlanan
 2D çelik, doğrusal elastik model ve yükleme kapsamıyla sınırlıdır.
 
 ## İkinci adım: grafik çiz
 
 ```bash
-.venv/bin/python 02_veriyi_ciz.py
+python -m feng497 plot
 ```
 
-Grafikler `outputs/02_grafikler/` klasörüne kaydedilir.
+Grafikler `reports/02_grafikler/` klasörüne kaydedilir.
 
 - Histogramda yatay eksen gerilme aralıkları, dikey eksen simülasyon sayısıdır.
 - Saçılım grafiklerinde yatay eksen bir girdi, dikey eksen hedef gerilmedir.
@@ -68,7 +71,7 @@ Bu derste de test örnekleri çizilmez ve model eğitilmez.
 ## Üçüncü adım: ilk model ve çapraz doğrulama
 
 ```bash
-.venv/bin/python 03_ilk_model.py
+python -m feng497 baseline
 ```
 
 `KFold(n_splits=5, shuffle=True, random_state=42)` eğitimdeki 300 örneği
@@ -94,7 +97,7 @@ tahmin = sabit + a*dw + b*exw + c*eyw + d*lam
 - Ortalama mutlak yüzde hata: her örneğin mutlak hatası kendi gerçek
   değerine bölünür, yüzdeye çevrilir ve ortalanır.
 
-CSV sonuçları ve gerçek–tahmin grafiği `outputs/03_ilk_model/` içindedir.
+CSV sonuçları ve gerçek–tahmin grafiği `reports/03_ilk_model/` içindedir.
 Grafikte kesikli çizgi mükemmel tahmindir; noktaların ona yakın olması istenir.
 Buradaki skorlar geliştirme amaçlı çapraz doğrulama sonuçlarıdır. Son test
 başarısı değildir. Modeller aynı bölmelerle karşılaştırılır. Bu derste nihai
@@ -103,7 +106,7 @@ model kaydedilmez; ileride seçilen model 300 örneğin tamamıyla eğitilecekti
 ## Dördüncü adım: Random Forest
 
 ```bash
-.venv/bin/python 04_random_forest.py
+python -m feng497 random-forest
 ```
 
 Yeni bir kütüphane gerekmez. Kod üçüncü dersteki aynı girdileri, aynı MPa
@@ -124,7 +127,7 @@ kuralları değildir; eğitimden öğrenilir. Orman ağaçların tahminlerini or
 Beş turda beş ayrı orman eğitilir. Her orman yalnızca kendi 240 öğrenme
 örneğini görür. Şimdilik ayar araması veya hedefe log dönüşümü yapılmaz.
 
-`outputs/04_random_forest/` içinde metrik tablosu, doğrulama tahminleri,
+`reports/04_random_forest/` içinde metrik tablosu, doğrulama tahminleri,
 gerçek–tahmin grafiği ve en büyük mutlak hatalara göre sıralanmış RF kayıtları
 bulunur. Yalnızca ortalama hataya bakma; yüksek gerilmelerdeki hataları da incele.
 Bu başlangıç modeli, README'deki ayarlanmış RF deneyiyle aynı deney değildir.
@@ -138,7 +141,7 @@ malzeme ve yüklemelere geçerliliği kanıtlamaz.
 ## Beşinci adım: Gaussian Process Regression (GPR)
 
 ```bash
-.venv/bin/python 05_gpr.py
+python -m feng497 gpr
 ```
 
 Bu ders iki GPR yaklaşımını, önceki Linear Regression ve Random Forest ile
@@ -170,7 +173,7 @@ tahminlerini değerlendiriyoruz; belirsizlik aralığı veya güvenlik garantisi
 sunmuyoruz.
 
 Metrikler, tahminler, iki GPR'nin hata tabloları ve grafik
-`outputs/05_gpr/` klasöründedir. Optimizasyon uyarıları varsa
+`reports/05_gpr/` klasöründedir. Optimizasyon uyarıları varsa
 `egitim_uyarilari.txt` içine yazılır; uyarı yoksa dosyada bu belirtilir.
 Bu ders log dönüşümünün katkısını GPR modeli içinde karşılaştırır; model
 ailesi ile hedef dönüşümünün etkilerini tek bir neden gibi yorumlamamalıyız.
@@ -180,7 +183,7 @@ ayrılan test gruplarıyla ölçülecektir.
 ## Altıncı adım: son test ve modelin kaydedilmesi
 
 ```bash
-.venv/bin/python 06_son_test_ve_kaydet.py
+python -m feng497 train
 ```
 
 Beşinci dersteki log hedefli GPR sabitlenir, 300 eğitim örneğinin tamamıyla
@@ -192,9 +195,9 @@ Test sonuçlarına göre bu kod model ayarı seçmez veya değiştirmez.
 - `joblib.dump(model, yol)` öğrenilmiş modeli diske kaydeder.
 - `joblib.load(yol)` modeli tekrar eğitim yapmadan kullanıma açar.
 
-`outputs/06_son_test/` içinde model (`maksimum_von_mises_gpr.joblib`), test
-metrikleri, her örneğin tahmin ve hatası, grafik, eğitim uyarıları ve modelin
-girdilerini/birimlerini/sürümlerini belirten `model_bilgileri.json` bulunur.
+`models/` içinde model (`maksimum_von_mises_gpr.joblib`) ve
+`model_bilgileri.json` bulunur. `reports/06_son_test/` ise test metriklerini,
+her örneğin tahmin ve hatasını, grafiği ve eğitim uyarılarını içerir.
 Kaydedilip yeniden yüklenen modelin 80 tahmini eğitimden hemen sonraki modelle
 karşılaştırılarak kontrol edilir.
 
@@ -208,7 +211,7 @@ ayrıca ölçekleme veya sonuca ayrıca `exp`/100 çarpımı uygulanmaz.
 ## Yedinci adım: kendi girdilerinle tahmin al
 
 ```bash
-.venv/bin/python 07_tahmin_yap.py --cap 30 --ex 0 --ey 0 --lam 0
+python -m feng497 predict --cap 30 --ex 0 --ey 0 --lam 0
 ```
 
 - `--cap 30`: delik çapı 30 mm (yarıçap değil).
