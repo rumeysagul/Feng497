@@ -132,6 +132,23 @@ Veri sağlayıcısı kamuya açık yayın öncesinde izin istemektedir.
 
 ## Kontroller ve rehber
 
+### GitHub Actions
+
+[CI workflow](.github/workflows/ci.yml), `main` ve `project-structure` branch'lerine
+push yapıldığında ve `main` hedefli PR açıldığında veya güncellendiğinde çalışır.
+Python 3.11 ile Ubuntu ve Windows üzerinde projeyi kurar, bağımlılık uyumunu,
+terminal giriş noktasını ve aşağıdaki entegrasyon testlerini kontrol eder.
+
+Model yeniden eğitilmez; kayıtlı modelin mevcut tahminleri koruyup korumadığı
+denetlenir. Bu kontrol yazılımın çalışmasını denetler; yeni senaryolardaki fiziksel
+doğruluğun veya ANSYS doğrulamasının yerine geçmez.
+
+Sonuçlar GitHub'ın **Actions** sekmesinde ve PR'ın **Checks** bölümünde görünür.
+CI başarısız olduğunda birleştirmenin engellenmesi için ayrıca repo yöneticisinin
+bu kontrolleri `main` koruma kuralında zorunlu yapması gerekir.
+
+### Yerel kontroller
+
 ```powershell
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
