@@ -1,0 +1,41 @@
+{
+  "model": "GPR, Matérn nu=2.5, log hedef",
+  "secim": "300 eğitim örneğinde 5 katlı CV; random_state=42",
+  "girdiler_sirayla": [
+    "dw",
+    "exw",
+    "eyw",
+    "lam"
+  ],
+  "hedef": "100 * kt_global",
+  "hedef_birimi": "MPa",
+  "egitim_ornek_sayisi": 300,
+  "girdi_egitim_araliklari": {
+    "dw": {
+      "min": 0.1011,
+      "max": 0.5984
+    },
+    "exw": {
+      "min": -0.4984,
+      "max": 0.4984
+    },
+    "eyw": {
+      "min": -0.1974,
+      "max": 0.1925
+    },
+    "lam": {
+      "min": -0.9967,
+      "max": 0.9996
+    }
+  },
+  "veri_sha256": "bbb60ae904a669bc2a75fa4e31bba11c05aef0a6e15b961ac1f2f6ea0a4d9084",
+  "python": "3.9.13",
+  "sklearn": "1.6.1",
+  "numpy": "2.0.2",
+  "pandas": "2.3.3",
+  "joblib": "1.5.3",
+  "ogrenilen_kernel": "47.1**2 * Matern(length_scale=[20.4, 1e+05, 12.2, 8.08], nu=2.5) + WhiteKernel(noise_level=1e-10)",
+  "yeniden_yukleme_kontrolu": "80 test tahmini eşleşti; rtol=atol=1e-12",
+  "kapsam": "300x100x2 mm plaka, izotropik doğrusal elastik çelik, plane stress, sigma_x=100 MPa, sigma_y=lam*100 MPa",
+  "not": "Tam alan veya çatlak tahmini değildir. Testler model seçimi için kullanılmadı. Bu sonuçlardan sonra test verisine göre ayar değiştirmek bağımsız test niteliğini bozar."
+}

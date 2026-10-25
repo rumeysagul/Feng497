@@ -10,19 +10,20 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import KFold, cross_val_predict
 
-from .paths import DATA_FILE, INPUT_COLUMNS, REPORTS_DIR
+from .dataset import load_cases
+from .paths import INPUT_COLUMNS, REPORTS_DIR
 
 
 def main():
     CIKTI = REPORTS_DIR / "03_ilk_model"
     CIKTI.mkdir(parents=True, exist_ok=True)
-    veri = pd.read_csv(DATA_FILE)
+    veri = load_cases()
     egitim = veri.loc[veri["split"] == "train"].copy()
     girdiler = list(INPUT_COLUMNS)
     X = egitim[girdiler]
     y = 100.0 * egitim["kt_global"]
 
-    # Her turda 240 örnek öğrenme, 60 örnek doğrulama için kullanılır.
+    # Her turda eğitim grubunun beşte dördü öğrenme, kalanı doğrulama içindir.
     # Beş tur sonunda her örnek, onu görmeyen bir modelle bir kez tahmin edilir.
     # Sabit seed, tekrar çalıştırınca aynı bölmelerin kullanılmasını sağlar.
     cv = KFold(n_splits=5, shuffle=True, random_state=42)
@@ -49,7 +50,7 @@ def main():
     rapor = pd.DataFrame(sonuclar)
     rapor.to_csv(CIKTI / "cv_sonuclari.csv", index=False)
     tahminler.to_csv(CIKTI / "cv_tahminleri.csv", index=False)
-    print("Yalnızca 300 eğitim örneği; 5 katlı çapraz doğrulama.")
+    print(f"Yalnızca {len(egitim)} eğitim örneği; 5 katlı çapraz doğrulama.")
     print("Ölçümler, her örneğin eğitim dışında kaldığı turdaki tahmininden hesaplandı.")
     print(rapor.round(3).to_string(index=False))
 

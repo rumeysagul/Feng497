@@ -37,11 +37,13 @@ Kodun anlamı:
 - `.isna().sum()`: her sütundaki eksik değerleri sayar.
 
 Bu dosya yalnızca veriyi okur ve eğitim grubunu inceler; model eğitmez.
-Hazır test gruplarını koruyacağız. Model seçimi ve ayarları yalnızca 300 eğitim
-örneği içinde çapraz doğrulama ile yapılacak. Son değerlendirmede 50 interpolasyon
-ve 30 ekstrapolasyon örneğini ayrı raporlayacağız.
+Aktif veri sürümü v2'dir: 425 eğitim ve 110 test senaryosu bulunur.
+Hazır test gruplarını koruyoruz. Model karşılaştırmaları yalnızca 425 eğitim
+örneği içinde çapraz doğrulama ile yapılır. Son değerlendirmede 50 `test_interp`,
+30 `test_mid` ve 30 `test_big` örneği ayrı raporlanır. V1'deki `test_extrap`,
+çaplar artık eğitim aralığında olduğundan v2'de `test_mid` adını almıştır.
 
-Veri sağlayıcısının `data/raw/plate_hole_dataset_v1/README.md` dosyasındaki Kt başarıları delik kenarı hedefi içindir; kendi global maksimum
+Veri sağlayıcısının `data/raw/plate_hole_dataset_v2/README.txt` dosyasındaki Kt başarıları delik kenarı hedefi içindir; kendi global maksimum
 hedefimizin başarısı olarak kullanılamaz. Fiziksel geçerlilik pakette tanımlanan
 2D çelik, doğrusal elastik model ve yükleme kapsamıyla sınırlıdır.
 
@@ -74,15 +76,15 @@ Bu derste de test örnekleri çizilmez ve model eğitilmez.
 python -m feng497 baseline
 ```
 
-`KFold(n_splits=5, shuffle=True, random_state=42)` eğitimdeki 300 örneği
-beş parçaya ayırır. Her turda dört parça (240 örnek) öğrenme, kalan parça
-(60 örnek) doğrulama içindir. Bu işlem beş kez tekrarlanır.
+`KFold(n_splits=5, shuffle=True, random_state=42)` eğitimdeki 425 örneği
+beş parçaya ayırır. Her turda dört parça (340 örnek) öğrenme, kalan parça
+(85 örnek) doğrulama içindir. Bu işlem beş kez tekrarlanır.
 
 `cross_val_predict(model, X, y, cv=cv)` bu beş turu yürütür. Her örneğin
 tahmini, o örneği öğrenirken görmemiş bir modelden gelir. Bu, modelin eğitim
 örneklerini ezberleyip ezberlemediğini değerlendirmek için gereklidir.
 
-Ortalama referansı her turdaki 240 öğrenme örneğinin hedef ortalamasını
+Ortalama referansı her turdaki 340 öğrenme örneğinin hedef ortalamasını
 tahmin eder. Linear Regression ise dört girdiye katsayılar öğrenir:
 
 ```text
@@ -101,7 +103,7 @@ CSV sonuçları ve gerçek–tahmin grafiği `reports/03_ilk_model/` içindedir.
 Grafikte kesikli çizgi mükemmel tahmindir; noktaların ona yakın olması istenir.
 Buradaki skorlar geliştirme amaçlı çapraz doğrulama sonuçlarıdır. Son test
 başarısı değildir. Modeller aynı bölmelerle karşılaştırılır. Bu derste nihai
-model kaydedilmez; ileride seçilen model 300 örneğin tamamıyla eğitilecektir.
+model kaydedilmez; seçilen model 425 örneğin tamamıyla eğitilir.
 
 ## Dördüncü adım: Random Forest
 
@@ -124,7 +126,7 @@ RandomForestRegressor(n_estimators=300, random_state=42, n_jobs=1)
 Her ağaç girdi değerlerini eşiklerle bölerek öğrenir; örneğin `dw` belirli
 bir değerden küçük mü diye sorabilir. Bu örnek eşikler bizim yazdığımız fizik
 kuralları değildir; eğitimden öğrenilir. Orman ağaçların tahminlerini ortalar.
-Beş turda beş ayrı orman eğitilir. Her orman yalnızca kendi 240 öğrenme
+Beş turda beş ayrı orman eğitilir. Her orman yalnızca kendi 340 öğrenme
 örneğini görür. Şimdilik ayar araması veya hedefe log dönüşümü yapılmaz.
 
 `reports/04_random_forest/` içinde metrik tablosu, doğrulama tahminleri,
@@ -156,7 +158,7 @@ her turun öğrenme grubunda optimize edilir; doğrulama hedefleri bu işleme ka
 `make_pipeline(StandardScaler(), GaussianProcessRegressor(...))` ölçekleme
 ve modeli bir arada tutar. Ölçekleme her girdiden öğrenme ortalamasını çıkarıp
 öğrenme standart sapmasına böler. Doğrulama verisi aynı öğrenilmiş değerlerle
-dönüştürülür. Böylece tüm 300 örneği önceden ölçekleyerek veri sızıntısı yaratmayız.
+dönüştürülür. Böylece tüm 425 örneği önceden ölçekleyerek veri sızıntısı yaratmayız.
 
 - `GPR`: doğrudan MPa hedefini öğrenir.
 - `GPR (log hedef)`: MPa hedefinin doğal logaritmasını öğrenir; tahminde
@@ -186,8 +188,9 @@ ayrılan test gruplarıyla ölçülecektir.
 python -m feng497 train
 ```
 
-Beşinci dersteki log hedefli GPR sabitlenir, 300 eğitim örneğinin tamamıyla
-eğitilir. Sonra 50 interpolasyon ve 30 ekstrapolasyon testi ayrı değerlendirilir.
+V1'de seçilmiş log hedefli GPR'nin ayarları korunur; v2'de 425 eğitim örneğinin
+tamamıyla yeniden eğitilir. Sonra 50 küçük delik, 30 orta delik ve 30 büyük delik
+testi ayrı değerlendirilir.
 Test sonuçlarına göre bu kod model ayarı seçmez veya değiştirmez.
 
 - `model.fit(X, y)` öğrenmeyi yapar. Scaler ve log hedef dönüşümü modelin içindedir.
@@ -198,12 +201,12 @@ Test sonuçlarına göre bu kod model ayarı seçmez veya değiştirmez.
 `models/` içinde model (`maksimum_von_mises_gpr.joblib`) ve
 `model_bilgileri.json` bulunur. `reports/06_son_test/` ise test metriklerini,
 her örneğin tahmin ve hatasını, grafiği ve eğitim uyarılarını içerir.
-Kaydedilip yeniden yüklenen modelin 80 tahmini eğitimden hemen sonraki modelle
+Kaydedilip yeniden yüklenen modelin 110 tahmini eğitimden hemen sonraki modelle
 karşılaştırılarak kontrol edilir.
 
-Bu model yalnızca tanımlanan fiziksel kapsam için değerlendirilmiştir. Hazır
-ekstrapolasyon testi, daha büyük deliklerin dar bir aralığını kapsar; tüm eğitim
-dışı koşullarda başarı anlamına gelmez. Testlere baktıktan sonra bunlara göre
+Bu model yalnızca tanımlanan fiziksel kapsam için değerlendirilmiştir. V2'deki
+üç test grubunun girdileri eğitim aralıklarındadır; eğitim dışı koşullar için
+ayrı bir ekstrapolasyon testi yoktur. Testlere baktıktan sonra bunlara göre
 ayar değiştirirsek, yeni bağımsız performans iddiası için yeni test verisi gerekir.
 Kaydedilen dosya ölçekleme ve log dönüşümünü de içerir; kullanırken girdilere
 ayrıca ölçekleme veya sonuca ayrıca `exp`/100 çarpımı uygulanmaz.
@@ -232,5 +235,8 @@ Geometri plaka dışına taşıyorsa veya girdiler sonlu değilse kod durur. Her
 bir girdi eğitim min–max sınırları dışındaysa ya da dikey kenara kalan mesafe
 10 mm'den azsa kapsam mesajı gösterilir. Tekil aralıkların içinde olmak da aynı
 parametre kombinasyonunun daha önce görüldüğü veya doğru tahmin edileceği
-anlamına gelmez. Ekstrapolasyon testimiz yalnızca çapın büyüdüğü belirli
-koşulları ölçtü; diğer eğitim dışı durumları doğrulamadı.
+anlamına gelmez. V1'deki ekstrapolasyon testi de v2'de artık eğitimde görülen
+çap aralığındadır; eğitim dışı durumlar ayrıca doğrulanmış değildir.
+
+V1 modeli `models/archive/v1/`, önceki grafik ve sonuçlar `reports/archive/v1/`
+altında saklanır. Aktif `models/` ve `reports/02_...`–`06_...` çıktıları v2 içindir.

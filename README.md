@@ -11,6 +11,7 @@ Feng497/
 ├── src/feng497/          # Python paketi ve terminal komutları
 │   ├── __main__.py      # Komut seçimi
 │   ├── paths.py         # Ortak dosya yolları ve girdi sütunları
+│   ├── dataset.py       # Veri ve test grubu doğrulamaları
 │   ├── modeling.py      # Ortak GPR oluşturma fonksiyonu
 │   ├── inspect_data.py  # Veri inceleme
 │   ├── plot_data.py     # Eğitim verisinin grafikleri
@@ -19,9 +20,11 @@ Feng497/
 │   ├── gpr.py           # GPR karşılaştırması
 │   ├── train.py         # Son eğitim, test ve model kaydı
 │   └── predict.py       # Kaydedilmiş modelle tahmin
-├── data/raw/plate_hole_dataset_v1/
-│   ├── README.md        # Veri sağlayıcısının orijinal açıklaması
-│   └── data/cases.csv   # 380 simülasyonun sayısal özeti
+├── data/raw/plate_hole_dataset_v2/
+│   ├── README.txt       # Veri sağlayıcısının orijinal açıklaması
+│   ├── data/cases.csv   # 535 simülasyonun sayısal özeti
+│   └── validation/     # Sağlayıcının ANSYS doğrulama tabloları
+├── data/raw/plate_hole_dataset_v1/ # Önceki veri sürümü
 ├── models/              # Eğitilmiş model ve kapsam/sürüm bilgileri
 ├── reports/             # Grafikler, metrikler ve tahmin tabloları
 ├── docs/                # Adım adım kullanım rehberi
@@ -94,18 +97,24 @@ maksimumunu ifade eder. Aynı hedefler değildir.
 
 Model ölçekleme ve log/exp dönüşümünü içerir. `predict` çıktısı MPa'dır,
 sonuca tekrar `exp` uygulanmaz veya 100 ile çarpılmaz.
-Örnek merkezî 30 mm delik için beklenen sonuç yaklaşık **338.18 MPa**'dır.
+Örnek merkezî 30 mm delik için v2 modelinin sonucu yaklaşık **337.76 MPa**'dır.
 
 ## Veri ve model dosyaları
 
-Veri yolu `data/raw/plate_hole_dataset_v1/data/cases.csv` olarak tanımlıdır.
-Sağlayıcının README'si tam veri paketini anlatır. Büyük alan/mesh dosyaları,
-profiller ve ANSYS makroları bu küçük depoya dahil değildir.
+Veri yolu `data/raw/plate_hole_dataset_v2/data/cases.csv` olarak tanımlıdır.
+V2, önceki 380 senaryoyu ve 155 yeni büyük delik senaryosunu birlikte içerir;
+v1 ve v2 dosyaları üst üste eklenmez. Eğitimde 425, testlerde 110 senaryo vardır.
+Eğitimde delik çapı 10.11–80 mm aralığındadır. Sağlayıcının README'si tam veri
+paketini anlatır. Büyük alan/mesh ve profil dosyaları bu küçük depoya dahil değildir;
+maksimum gerilme modeli yalnızca `cases.csv` kullanır.
 
 - `models/maksimum_von_mises_gpr.joblib`: kaydedilmiş log hedefli GPR.
 - `models/model_bilgileri.json`: girdi sırası, birimler, eğitim kapsamı ve sürümler.
 - `reports/06_son_test/test_sonuclari.csv`: son test metrikleri.
 - `reports/06_son_test/test_tahminleri.csv`: her test örneğinin sonucu ve hatası.
+- `models/archive/v1/`: önceki 300 senaryoyla eğitilmiş model ve metadata.
+- `reports/archive/v1/`: v1 grafiklerinin, CV ve test sonuçlarının değişmeden kopyası.
+- `reports/06_son_test/v1_v2_karsilastirma.csv`: aynı 110 test senaryosunda iki modelin karşılaştırması.
 
 Dosya yolları `src/feng497/paths.py` içinde tanımlıdır. Geliştirme kurulumu,
 komutu hangi klasörden çalıştırdığınıza bağlı olmadan bu depoyu bulur.
@@ -115,16 +124,28 @@ Normal paket kurulumu kullanırsanız bu değişkeni veri deposuna yönlendirin.
 
 ## Değerlendirme
 
-300 eğitim örneği içinde beş katlı çapraz doğrulama ile model karşılaştırılır.
-50 interpolasyon ve 30 ekstrapolasyon örneği son değerlendirme içindir.
+425 eğitim örneği içinde beş katlı çapraz doğrulama ile model karşılaştırılır.
+50 `test_interp`, 30 `test_mid` ve 30 `test_big` örneği ayrı ayrı değerlendirilir.
+Eski `test_extrap` grubu v2'de `test_mid` adını almıştır. Çaplar artık eğitim
+aralığında olduğundan bu grup ekstrapolasyon testi olarak adlandırılmaz.
+GPR yapısı, dört girdi ve `100 * kt_global` hedefi önceki sürümle aynıdır.
 Test sonuçlarına göre yeni ayarlar seçilirse yeni bağımsız test verisi gerekir.
 
 Depodaki mevcut son test sonuçları:
 
 | Grup | Ortalama mutlak yüzde hata | Maksimum mutlak yüzde hata |
 |---|---:|---:|
-| İnterpolasyon | %0.45 | %2.81 |
-| Ekstrapolasyon | %1.98 | %12.47 |
+| `test_interp` — 50 küçük delik | %0.64 | %3.76 |
+| `test_mid` — 30 orta delik | %1.01 | %5.51 |
+| `test_big` — 30 büyük delik | %1.49 | %7.50 |
+
+Aynı test senaryolarında v1 modelinin ortalama yüzde hataları sırasıyla %0.45,
+%1.98 ve %11.23'tür. V2, orta ve büyük deliklerde daha iyi sonuç verdi; küçük
+deliklerde ortalama yüzde hata hafifçe yükseldi. Ek veri her grupta otomatik
+iyileşme sağlamaz. Karşılaştırma sonrası testlere göre ayar değiştirilmedi.
+
+V2 geçişinin kapsamı ve çalıştırılan adımlar [docs/V2_GECIS.md](docs/V2_GECIS.md)
+içinde kayıtlıdır.
 
 Bu değerler yeni tasarımlar için hata garantisi değildir. Veri sağlayıcısının
 README'sindeki delik kenarı `Kt` başarıları bu global hedefle karıştırılmamalıdır.
@@ -153,9 +174,11 @@ bu kontrolleri `main` koruma kuralında zorunlu yapması gerekir.
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-Kontroller, kaydedilmiş modelin eski 80 test tahminini koruduğunu, veri hash'ini,
-farklı çalışma dizininden tahmin alınabildiğini ve import sırasında eğitim
-başlamadığını doğrular. Bu kontroller model seçimi veya yeniden eğitim yapmaz.
+Kontroller, kaydedilmiş modelin kayıtlı 110 test tahminiyle eşleştiğini, veri/model
+hash'lerini, eski senaryoların korunduğunu ve modelin yalnızca eğitim satırlarıyla
+öğrendiğini doğrular. Büyük delik için farklı çalışma dizininden tahmin alınması,
+geçersiz verinin reddedilmesi ve import sırasında eğitim başlamaması da denetlenir.
+Bu kontroller model seçimi veya yeniden eğitim yapmaz.
 
 Adım adım açıklamalar [docs/BASLANGIC.md](docs/BASLANGIC.md) içindedir.
 Eski paylaşım paketinin hash listesi, geçmiş kaydı olarak

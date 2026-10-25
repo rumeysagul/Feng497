@@ -1,0 +1,9 @@
+run,check,d,lam,nq,esz,nodes,kt,ktref,ref_source,err_pct,sepc
+1,convergence,30,0,22,3.0,12887,3.358547,3.347143,Heywood,0.3407,0.04119
+2,convergence,30,0,45,3.0,18467,3.370728,3.347143,Heywood,0.7046,0.02798
+3,convergence,30,0,90,3.0,26515,3.373173,3.347143,Heywood,0.7777,0.02709
+4,convergence,30,0,180,3.0,41934,3.374043,3.347143,Heywood,0.8037,0.02802
+5,far-field mesh 3 mm,5,0,90,3.0,33818,3.007878,3.007763,Heywood (Kirsch 3),0.0038,0.00607
+6,Kirsch uniaxial,5,0,90,1.5,84139,3.008178,3.007763,Heywood (Kirsch 3),0.0138,0.00248
+7,Kirsch equibiaxial,5,1,90,1.5,84139,2.006511,2.0,Kirsch,0.3256,0.00123
+8,Kirsch pure shear,5,-1,90,1.5,84139,4.020609,4.0,Kirsch,0.5152,0.00291

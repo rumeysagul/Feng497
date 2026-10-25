@@ -1,12 +1,11 @@
 """İlk ders: CSV'yi oku, eğitim verisini seç ve hedefi MPa'ya çevir."""
 
-import pandas as pd
-
-from .paths import DATA_FILE, INPUT_COLUMNS
+from .dataset import load_cases
+from .paths import INPUT_COLUMNS
 
 
 def main():
-    veri = pd.read_csv(DATA_FILE)
+    veri = load_cases()
 
     print("Toplam simülasyon sayısı:", len(veri))
     print("\nHazır veri grupları:")
