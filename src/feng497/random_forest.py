@@ -11,13 +11,14 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import KFold, cross_val_predict
 
-from .paths import DATA_FILE, INPUT_COLUMNS, REPORTS_DIR
+from .dataset import load_cases
+from .paths import INPUT_COLUMNS, REPORTS_DIR
 
 
 def main():
     CIKTI = REPORTS_DIR / "04_random_forest"
     CIKTI.mkdir(parents=True, exist_ok=True)
-    veri = pd.read_csv(DATA_FILE)
+    veri = load_cases()
     egitim = veri.loc[veri["split"] == "train"].copy()
     girdiler = list(INPUT_COLUMNS)
     X = egitim[girdiler]
@@ -53,7 +54,7 @@ def main():
     rapor = pd.DataFrame(sonuclar)
     rapor.to_csv(CIKTI / "cv_sonuclari.csv", index=False)
     tahminler.to_csv(CIKTI / "cv_tahminleri.csv", index=False)
-    print("300 eğitim örneği, 4 girdi, aynı 5 doğrulama bölmesi.")
+    print(f"{len(egitim)} eğitim örneği, 4 girdi, aynı 5 doğrulama bölmesi.")
     print(rapor.round(3).to_string(index=False))
 
     # En zor örnekleri gizlemiyoruz; en büyük mutlak RF hatalarını kaydediyoruz.

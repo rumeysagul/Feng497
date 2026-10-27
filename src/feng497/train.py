@@ -15,22 +15,26 @@ from sklearn.exceptions import ConvergenceWarning
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from threadpoolctl import threadpool_limits
 
-from .paths import DATA_FILE, INPUT_COLUMNS, MODELS_DIR, REPORTS_DIR
+from .paths import (
+    DATA_FILE, DATASET_VERSION, INPUT_COLUMNS, MODELS_DIR, PROJECT_ROOT,
+    REPORTS_DIR, TEST_LABELS, TEST_SPLITS,
+)
+from .dataset import load_cases
 from .modeling import make_gpr
 
 
 def main():
     CIKTI = REPORTS_DIR / "06_son_test"
-    CIKTI.mkdir(parents=True, exist_ok=True)
     VERI_YOLU = DATA_FILE
-    veri = pd.read_csv(VERI_YOLU)
+    veri = load_cases()
+    CIKTI.mkdir(parents=True, exist_ok=True)
     girdiler = list(INPUT_COLUMNS)
     egitim = veri.loc[veri["split"] == "train"].copy()
 
     # Beşinci derste seçilen ayarlar; test sonuçlarına göre değiştirilmiyor.
     model = make_gpr(log_target=True)
 
-    print("Sabitlenen log hedefli GPR, 300 eğitim örneğiyle eğitiliyor...", flush=True)
+    print(f"Sabitlenen log hedefli GPR, {len(egitim)} eğitim örneğiyle eğitiliyor...", flush=True)
     with threadpool_limits(limits=1), warnings.catch_warnings(record=True) as kayit:
         warnings.simplefilter("always", ConvergenceWarning)
         model.fit(egitim[girdiler], 100.0 * egitim["kt_global"])
@@ -46,7 +50,7 @@ def main():
 
     sonuclar = []
     tum_tahminler = []
-    for grup in ["test_interp", "test_extrap"]:
+    for grup in TEST_SPLITS:
         test = veri.loc[veri["split"] == grup].copy()
         gercek = 100.0 * test["kt_global"]
         with threadpool_limits(limits=1):
@@ -65,7 +69,7 @@ def main():
             "ortalama_mutlak_yuzde_hata": np.mean(yuzde),
             "maksimum_mutlak_yuzde_hata": np.max(yuzde),
         })
-        tablo = test[["case", "split"] + girdiler].copy()
+        tablo = test[["case", "split", "D", "ex", "ey"] + girdiler].copy()
         tablo["gercek_MPa"] = gercek
         tablo["tahmin_MPa"] = tahmin
         tablo["mutlak_hata_MPa"] = hata
@@ -79,18 +83,24 @@ def main():
 
     bilgiler = {
         "model": "GPR, Matérn nu=2.5, log hedef",
-        "secim": "300 eğitim örneğinde 5 katlı CV; random_state=42",
+        "secim": "v1 eğitim CV'sinde seçilen log hedefli GPR; v2'de aynı ayarlar korundu. "
+                 "V2 eğitim grubunda 5 katlı CV; random_state=42. Testler ayar seçimine katılmadı.",
+        "veri_surumu": DATASET_VERSION,
+        "veri_yolu": str(VERI_YOLU.relative_to(PROJECT_ROOT).as_posix()),
         "girdiler_sirayla": girdiler,
         "hedef": "100 * kt_global", "hedef_birimi": "MPa",
         "egitim_ornek_sayisi": len(egitim),
+        "egitim_case_ids": egitim["case"].tolist(),
+        "test_ornek_sayilari": {grup: int((veri["split"] == grup).sum()) for grup in TEST_SPLITS},
         "girdi_egitim_araliklari": {
             s: {"min": float(egitim[s].min()), "max": float(egitim[s].max())}
             for s in girdiler},
         "veri_sha256": hashlib.sha256(VERI_YOLU.read_bytes()).hexdigest(),
+        "model_sha256": hashlib.sha256(MODEL_YOLU.read_bytes()).hexdigest(),
         "python": platform.python_version(), "sklearn": sklearn.__version__,
         "numpy": np.__version__, "pandas": pd.__version__, "joblib": joblib.__version__,
         "ogrenilen_kernel": str(model.regressor_.named_steps["gaussianprocessregressor"].kernel_),
-        "yeniden_yukleme_kontrolu": "80 test tahmini eşleşti; rtol=atol=1e-12",
+        "yeniden_yukleme_kontrolu": f"{len(tahminler)} test tahmini eşleşti; rtol=atol=1e-12",
         "kapsam": "300x100x2 mm plaka, izotropik doğrusal elastik çelik, "
                   "plane stress, sigma_x=100 MPa, sigma_y=lam*100 MPa",
         "not": "Tam alan veya çatlak tahmini değildir. Testler model seçimi için kullanılmadı. "
@@ -99,15 +109,14 @@ def main():
     (MODELS_DIR / "model_bilgileri.json").write_text(
         json.dumps(bilgiler, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    fig, axes = plt.subplots(1, 2, figsize=(11, 5), sharex=True, sharey=True)
+    fig, axes = plt.subplots(1, len(TEST_SPLITS), figsize=(16, 5), sharex=True, sharey=True)
     sinirlar = [min(tahminler["gercek_MPa"].min(), tahminler["tahmin_MPa"].min()),
                 max(tahminler["gercek_MPa"].max(), tahminler["tahmin_MPa"].max())]
-    for ax, grup, baslik in zip(axes, ["test_interp", "test_extrap"],
-                               ["İnterpolasyon — 50 örnek", "Ekstrapolasyon — 30 örnek"]):
+    for ax, grup in zip(np.atleast_1d(axes), TEST_SPLITS):
         tablo = tahminler.loc[tahminler["split"] == grup]
         ax.scatter(tablo["gercek_MPa"], tablo["tahmin_MPa"], s=30, alpha=0.8)
         ax.plot(sinirlar, sinirlar, "--", color="#555555")
-        ax.set_title(baslik)
+        ax.set_title(f"{TEST_LABELS[grup]}\n{len(tablo)} test senaryosu")
         ax.set_xlabel("Gerçek maksimum von Mises [MPa]")
         ax.set_ylabel("Test tahmini [MPa]")
         ax.set_aspect("equal", adjustable="box")
@@ -119,10 +128,10 @@ def main():
 
     print(rapor.round(3).to_string(index=False))
     print("\nHer test grubunda yüzde hatası en yüksek örnek:")
-    for grup in ["test_interp", "test_extrap"]:
+    for grup in TEST_SPLITS:
         print(tahminler.loc[tahminler["split"] == grup]
               .nlargest(1, "mutlak_yuzde_hata").round(3).to_string(index=False))
-    print("\nModel kaydedildi ve yeniden yüklenen modelin 80 tahmini doğrulandı.")
+    print(f"\nModel kaydedildi ve yeniden yüklenen modelin {len(tahminler)} tahmini doğrulandı.")
     print("Eğitim uyarısı sayısı:", len(uyarilar))
     print("Dosyalar:", CIKTI)
 

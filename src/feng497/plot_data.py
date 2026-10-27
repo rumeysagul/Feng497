@@ -7,14 +7,15 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from .paths import DATA_FILE, INPUT_COLUMNS, REPORTS_DIR
+from .dataset import load_cases
+from .paths import REPORTS_DIR
 
 
 def main():
     CIKTI = REPORTS_DIR / "02_grafikler"
     CIKTI.mkdir(parents=True, exist_ok=True)
 
-    veri = pd.read_csv(DATA_FILE)
+    veri = load_cases()
     egitim = veri.loc[veri["split"] == "train"].copy()
     egitim["max_von_mises_MPa"] = 100.0 * egitim["kt_global"]
     hedef = "max_von_mises_MPa"
@@ -24,7 +25,7 @@ def main():
     ax.hist(egitim[hedef], bins=20, color="#2878a5", edgecolor="white")
     ax.set_xlabel("Plakadaki maksimum von Mises gerilmesi [MPa]")
     ax.set_ylabel("Simülasyon sayısı")
-    ax.set_title("Eğitim verisindeki 300 simülasyonun hedef dağılımı")
+    ax.set_title(f"Eğitim verisindeki {len(egitim)} simülasyonun hedef dağılımı")
     ax.grid(axis="y", alpha=0.2)
     fig.tight_layout()
     fig.savefig(CIKTI / "01_hedef_dagilimi.png", dpi=160)

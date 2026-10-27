@@ -13,20 +13,21 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import KFold, cross_val_predict
 from threadpoolctl import threadpool_limits
 
-from .paths import DATA_FILE, INPUT_COLUMNS, REPORTS_DIR
+from .dataset import load_cases
+from .paths import INPUT_COLUMNS, REPORTS_DIR
 from .modeling import make_gpr
 
 
 def main():
     CIKTI = REPORTS_DIR / "05_gpr"
     CIKTI.mkdir(parents=True, exist_ok=True)
-    veri = pd.read_csv(DATA_FILE)
+    veri = load_cases()
     egitim = veri.loc[veri["split"] == "train"].copy()
     girdiler = list(INPUT_COLUMNS)
     X = egitim[girdiler]
     y = 100.0 * egitim["kt_global"]
 
-    # Hem scaler hem GPR her turda yalnızca 240 öğrenme örneğine fit edilir.
+    # Hem scaler hem GPR yalnızca o turun öğrenme örneklerine fit edilir.
     # Log dönüşümü, MPa hedefi pozitif olduğu için kullanılabilir.
     # Geri dönüşüm predict içinde yapılır; tüm metrikler MPa üzerinden hesaplanır.
     modeller = {
@@ -67,7 +68,7 @@ def main():
     tahminler.to_csv(CIKTI / "cv_tahminleri.csv", index=False)
     (CIKTI / "egitim_uyarilari.txt").write_text(
         "\n".join(uyarilar) if uyarilar else "Eğitim uyarısı yok.\n", encoding="utf-8")
-    print("\n300 eğitim örneği, aynı 4 girdi ve aynı 5 doğrulama bölmesi.")
+    print(f"\n{len(egitim)} eğitim örneği, aynı 4 girdi ve aynı 5 doğrulama bölmesi.")
     print(rapor.round(3).to_string(index=False))
     print("Eğitim uyarısı sayısı:", len(uyarilar), "(ayrıntılar dosyada)")
 
