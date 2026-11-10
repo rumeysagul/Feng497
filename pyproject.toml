@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "feng497"
 version = "0.1.0"
-description = "ML baselines for maximum von Mises stress in a plate with a hole"
+description = "ML models for steel plate stress and UD composite first-ply failure loads"
 readme = "README.md"
 requires-python = ">=3.9,<3.13"
 dynamic = ["dependencies"]

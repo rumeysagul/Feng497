@@ -1,8 +1,87 @@
-# FENG497: maksimum von Mises gerilmesi tahmini
+# FENG497: çelik gerilmesi ve kompozit ilk hasar yükü tahmini
 
 Delikli bir çelik plakanın geometri ve yükleme parametrelerinden, plakanın
 tamamındaki en yüksek von Mises gerilmesini MPa cinsinden tahmin eder.
 Bu ilk aşama statik gerilme tahminidir. Çatlak boyutu veya ilerlemesini içermez.
+
+Yeni kompozit aşaması, aynı geometride T300/5208 karbon/epoksi tek yönlü tek
+tabakanın Tsai-Wu ilk hasar yükünü tahmin eder. Fiber açısı beşinci fiziksel
+girdidir. Kompozit komutları, veri seti ve model dosyaları çelikten ayrıdır.
+
+## Kompozit verisiyle eğitim ve tahmin
+
+Veri sağlayıcısının `UD_composite_dataset_v1` paketinden `cases.csv`, açıklama
+ve küçük doğrulama tabloları `data/raw/UD_composite_dataset_v1/` içine alınmıştır.
+808 senaryonun 648'i eğitim, 100'ü `test_interp`, 60'ı `test_0_90` grubundadır.
+Son grupta fiber açısı tam 0° olan 30 ve tam 90° olan 30 senaryo vardır.
+
+Windows PowerShell, proje kökünde:
+
+```powershell
+.\.venv\Scripts\python.exe -m feng497 inspect-composite
+.\.venv\Scripts\python.exe -m feng497 train-composite
+.\.venv\Scripts\python.exe -m feng497 predict-composite --cap 30 --ex 0 --ey 0 --lam 0 --fib 0
+.\.venv\Scripts\python.exe -m feng497 predict-composite --cap 30 --ex 0 --ey 0 --lam 0 --fib 90
+```
+
+`--fib` +x ekseninden ölçülen fiber açısıdır; `--fiber-angle` da kullanılabilir.
+`lam=0` için yatay çekme altında `fib=0` fiberlere paralel, `fib=90` fiberlere
+dik yüklemeyi temsil eder. `lam` sıfırdan farklıysa ek dikey gerilme de vardır.
+
+**Hedef `100 * tw_R_global` [MPa]**: sabit yük oranıyla tüm yükler birlikte
+ölçeklenirken plakanın herhangi bir yerinde ilk hasarı başlatan nominal
+`sigma_x`. `sigma_y = lam * sigma_x`. Veri paketindeki `fail_load_tw_mpa`
+yalnızca delik kenarını kapsar; 14 senaryoda ilk hasar başka yerde başladığından
+global hedef farklıdır. Sağlayıcının delik kenarı için verdiği referans hata
+oranları bu yeni global hedefin sonuçlarıyla doğrudan karşılaştırılamaz.
+
+Model yalnızca `D, ex, ey, lam, fib` girdilerinden 11 özellik hesaplar: normalize
+geometri, `cos(2*fib)`, `sin(2*fib)` ve kenar mesafeleri. Gerilme, hasar sonucu,
+mesh bilgisi veya test etiketleri girdi olarak kullanılmaz. Sabit log hedefli
+GPR ve doğrusal regresyon referansı, yalnızca 648 eğitim örneğinde aynı beş CV
+bölmesiyle incelenir. Son GPR tüm eğitim grubuyla öğrenir. İki ayrılmış test
+grubu final değerlendirmede kullanılır; 0° ve 90° sonuçları ayrıca raporlanır.
+Test sonuçlarına göre hiperparametre değiştirilmez.
+
+- Model: `models/composite_v1/kompozit_ilk_hasar_gpr.joblib`
+- Kapsam, kaynak/model hash'leri ve eğitim kimlikleri: `models/composite_v1/model_bilgileri.json`
+- Eğitim içi CV: `reports/composite_v1/cv_sonuclari.csv`
+- Ayrılmış testler: `reports/composite_v1/test_sonuclari.csv`
+- Fiber yönleri ayrı: `reports/composite_v1/test_0_90_sonuclari.csv`
+- Senaryo tahminleri: `reports/composite_v1/test_tahminleri.csv`
+
+Kaydedilmiş kompozit modelin test sonuçları:
+
+| Grup | Senaryo | Ortalama mutlak hata (MPa) | Ortalama mutlak yüzde hata | En yüksek yüzde hata |
+|---|---:|---:|---:|---:|
+| Ara açılar | 100 | 0.195 | %0.73 | %5.79 |
+| 0° ve 90° birlikte | 60 | 0.600 | %1.72 | %9.63 |
+| 0° | 30 | 1.062 | %2.14 | %9.63 |
+| 90° | 30 | 0.137 | %1.30 | %9.15 |
+
+Beş katlı eğitim içi doğrulamada GPR'nin ortalama mutlak yüzde hatası %1.03,
+doğrusal regresyon referansının %29.04'tür. Son GPR'nin kaydı yeniden
+yüklenerek 160 test tahmininin aynı kaldığı kontrol edildi. GPR'nin bazı
+çekirdek parametreleri optimizasyon sınırlarına yaklaştı; uyarılar
+`reports/composite_v1/egitim_uyarilari.txt` içinde saklanır.
+
+Merkezde 30 mm delik ve yalnızca yatay çekme (`lam=0`) için örnek ML tahmini,
+fiber açısı 0°'de **82.36 MPa**, 90°'de **14.17 MPa**. Bu iki örnek tahmin
+ayrı ANSYS çözümü veya test hatası olarak sunulmaz.
+
+`train-composite` bu kompozit çıktılarını yeniden yazar. Eski çelik model ve
+raporları korunur. Tam alan Parquet ve delik profil dosyaları, bu tek değer
+modeli için gerekmediğinden depoya kopyalanmamıştır; eğitim `cases.csv` ile
+çalışır. Tahmin komutu sağlayıcının geometri, minimum 10 mm kenar mesafesi,
+yük oranı ve 0–90° açı kapsamının dışındaki girdileri reddeder.
+
+Bu model sağlayıcının sabit malzeme dayanımları ve Tsai-Wu etkileşim katsayısı
+varsayımına bağlıdır. Doğrusal elastik FE sonucundan ilk tabaka hasarı tahmin
+eder; nihai taşıma kapasitesi, fiziksel deney doğrulaması, çatlak boyutu,
+ilerlemesi veya hasar konumu modeli değildir. Çelik verileri bu eğitime katılmaz.
+Von Mises, kompozit hasar hedefi olarak kullanılmaz.
+
+Aşağıdaki mevcut ders komutları ve çelik sonuçları önceki aşamaya aittir.
 
 ## Proje yapısı
 
@@ -174,11 +253,12 @@ bu kontrolleri `main` koruma kuralında zorunlu yapması gerekir.
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-Kontroller, kaydedilmiş modelin kayıtlı 110 test tahminiyle eşleştiğini, veri/model
-hash'lerini, eski senaryoların korunduğunu ve modelin yalnızca eğitim satırlarıyla
-öğrendiğini doğrular. Büyük delik için farklı çalışma dizininden tahmin alınması,
-geçersiz verinin reddedilmesi ve import sırasında eğitim başlamaması da denetlenir.
-Bu kontroller model seçimi veya yeniden eğitim yapmaz.
+Kontroller, çelik modelinin 110 ve kompozit modelinin 160 kayıtlı test
+tahminini, veri/model hash'lerini, eski çelik senaryolarının korunduğunu ve
+her iki modelin yalnızca eğitim satırlarıyla öğrendiğini doğrular. Farklı
+çalışma dizininden tahmin, kompozit açı ve geometri kontrolleri ve import
+sırasında eğitim başlamaması da denetlenir. Bu kontroller model seçimi veya
+yeniden eğitim yapmaz.
 
 Adım adım açıklamalar [docs/BASLANGIC.md](docs/BASLANGIC.md) içindedir.
 Eski paylaşım paketinin hash listesi, geçmiş kaydı olarak

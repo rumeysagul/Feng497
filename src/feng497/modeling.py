@@ -10,11 +10,11 @@ from sklearn.preprocessing import StandardScaler
 from .paths import INPUT_COLUMNS
 
 
-def make_gpr(*, log_target=False):
+def make_gpr(*, log_target=False, n_features=None):
     """Mevcut modelin çekirdek ve optimizasyon ayarlarıyla yeni bir model kur."""
     kernel = (
         ConstantKernel(1.0)
-        * Matern(length_scale=np.ones(len(INPUT_COLUMNS)), nu=2.5)
+        * Matern(length_scale=np.ones(n_features or len(INPUT_COLUMNS)), nu=2.5)
         + WhiteKernel(1e-6, (1e-10, 1e-2))
     )
     model = make_pipeline(
