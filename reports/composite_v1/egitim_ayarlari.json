@@ -1,0 +1,24 @@
+{
+  "veri_surumu": "UD_composite_dataset_v1",
+  "hedef": "100 * tw_R_global",
+  "girdiler_sirayla": [
+    "dw",
+    "exw",
+    "eyw",
+    "lam",
+    "cos_2fib",
+    "sin_2fib",
+    "lig_top_w",
+    "lig_bot_w",
+    "lig_min_w",
+    "net_w",
+    "dist_end_w"
+  ],
+  "yontem": "StandardScaler + GPR Matérn 5/2 ARD, log/exp hedef",
+  "n_restarts_optimizer": 3,
+  "model_random_state": 0,
+  "cv_n_splits": 5,
+  "cv_shuffle": true,
+  "cv_random_state": 42,
+  "secim": "Önceden sabit log GPR; doğrusal regresyon yalnızca CV referansı. Test grupları model veya özellik seçimine katılmıyor."
+}
