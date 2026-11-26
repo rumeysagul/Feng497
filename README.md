@@ -81,6 +81,44 @@ eder; nihai taşıma kapasitesi, fiziksel deney doğrulaması, çatlak boyutu,
 ilerlemesi veya hasar konumu modeli değildir. Çelik verileri bu eğitime katılmaz.
 Von Mises, kompozit hasar hedefi olarak kullanılmaz.
 
+## Kompozitte ilk yorulma çatlağının çevrim sayısı
+
+`UD_composite_unitloads_v1` paketindeki yatay ve dikey ANSYS birim yüklerinden
+delik kenarındaki fiber ekseni gerilmeleri birleştirilir. Kod, sağlanan S–N
+eğrileriyle Hashin–Rotem ilk hasar ölçütünü uygular ve 1–10⁹ çevrim arasında
+37 tepe gerilmesi eşiği üretir. 1.000 ve 1.000.000 çevrim sonuçları paket
+tablosuyla yuvarlama hassasiyetinde doğrulanır. Her yükleme biçimi için
+648 plakanın eğrileriyle bir GPR eğitilir. Tahminde öğrenilen eğri tersine
+çevrilerek verilen tepe gerilmesine karşılık gelen çevrim sayısı bulunur.
+
+PowerShell, proje kökünde:
+
+```powershell
+$unitLoads = 'C:/veri/UD_composite_unitloads_v1'  # data/ ve fatigue/ bulunan dizin
+.\.venv\Scripts\python.exe -m feng497 train-fatigue --data-dir $unitLoads
+.\.venv\Scripts\python.exe -m feng497 predict-fatigue --cap 30 --ex 0 --ey 0 --fib 90 --load-path x --peak-mpa 8
+```
+
+Sabit genlikli ve orantılı yüklemede `R=0.1` kullanılır. `x` yalnız yatay, `y`
+yalnız dikey, `biaxial` iki eksende eşit, `shear` iki eksende eşit büyüklükte
+zıt işaretli gerilme uygular. Tepe gerilmesi MPa cinsinden pozitif nominal
+büyüklüktür; `y` seçeneğinde dikey bileşene, diğerlerinde yatay bileşene aittir.
+Eğrinin sınırlarını aşan yüklerde çıktı ilk çevrim içinde veya 10⁹ çevrimin
+üzerinde olarak gösterilir.
+
+- `models/fatigue_v1/` model ve veri hash'leriyle eğitim kapsamını içerir.
+- `reports/fatigue_v1/test_cevrim_sonuclari.csv` ayrılmış 160 plakadaki sonuçları
+  yükleme ve açı gruplarıyla verir. Hata, 1–100 MPa arasındaki ortak test
+  yüklerinde referansın 1–10⁹ çevrim aralığına düştüğü durumlarda hesaplanır.
+- `reports/fatigue_v1/test_cevrim_tahminleri.csv` her test yükünün
+  tahminini ve aralık durumunu gösterir. Aralık dışı sonuçların log
+  değerleri hesaplama amacıyla sınıra kırpılmıştır.
+
+Ölçülen başarı, T300/5208'e ölçeklenen AS4/3501-6 S–N eğrileriyle elde edilen
+referansların yeniden üretimini gösterir. Kapsam delik kenarında ilk
+yorulma çatlağıdır. Fiziksel doğrulama için T300/5208 yorulma deneyleri, çatlak
+büyümesi için çevrime bağlı çatlak boyutu verisi gerekir.
+
 Aşağıdaki mevcut ders komutları ve çelik sonuçları önceki aşamaya aittir.
 
 ## Proje yapısı
