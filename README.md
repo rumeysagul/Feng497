@@ -81,7 +81,34 @@ eder; nihai taşıma kapasitesi, fiziksel deney doğrulaması, çatlak boyutu,
 ilerlemesi veya hasar konumu modeli değildir. Çelik verileri bu eğitime katılmaz.
 Von Mises, kompozit hasar hedefi olarak kullanılmaz.
 
-## Kompozitte ilk yorulma çatlağının çevrim sayısı
+## Delik kenarı gerilme dağılımı ve yorulma ömrü
+
+`train-hole-stress`, yatay ve dikey birim yük için 360 açıda teğet gerilme
+dağılımını 648 ANSYS plakasından öğrenir. Girdiler delik çapı, konumu ve
+fiber açısıdır. Delik serbest kenar olduğundan tahmin edilen teğet gerilme
+fiber boyunca, fibere dik ve kayma gerilmesine dönüştürülür. Yatay ve
+dikey profiller, verilen nominal yüklerle ölçeklenip birleştirilir.
+
+`predict-fatigue` varsayılan olarak bu gerilme tahminini S–N hesabına
+verir. Hashin–Rotem ölçütü delik kenarındaki 360 noktada değerlendirilir;
+çıktı en erken ilk çatlağa karşılık gelen çevrim sayısıdır. Kapsam sabit
+genlikli, orantılı yükleme ve `R=0.1` ile 1–10⁹ çevrimdir. Dört yükleme
+seçeneği aşağıda açıklanır.
+
+```powershell
+$unitLoads = 'C:/veri/UD_composite_unitloads_v1'  # data/ ve fatigue/ bulunan dizin
+.\.venv\Scripts\python.exe -m feng497 train-hole-stress --data-dir $unitLoads
+.\.venv\Scripts\python.exe -m feng497 predict-hole-stress --cap 30 --ex 0 --ey 0 --fib 90 --sigma-x 8 --sigma-y 0 --output gerilme.csv
+.\.venv\Scripts\python.exe -m feng497 predict-fatigue --cap 30 --ex 0 --ey 0 --fib 90 --load-path x --peak-mpa 8
+```
+
+İki tahmin komutu kaydedilmiş model ve S–N dayanımlarıyla çalışır.
+`reports/hole_stress_v1/` altında aynı 160 ayrılmış plakada hem doğrudan
+ANSYS profillerine göre gerilme hatası hem de ANSYS + S–N referansına
+göre çevrim hatası bulunur. Referans ömürler uyarlanmış S–N modeline
+dayanır; fiziksel deneylerle doğrulanmaları gerekir.
+
+## İlk yorulma çatlağı için doğrudan GPR
 
 `UD_composite_unitloads_v1` paketindeki yatay ve dikey ANSYS birim yüklerinden
 delik kenarındaki fiber ekseni gerilmeleri birleştirilir. Kod, sağlanan S–N
@@ -96,7 +123,7 @@ PowerShell, proje kökünde:
 ```powershell
 $unitLoads = 'C:/veri/UD_composite_unitloads_v1'  # data/ ve fatigue/ bulunan dizin
 .\.venv\Scripts\python.exe -m feng497 train-fatigue --data-dir $unitLoads
-.\.venv\Scripts\python.exe -m feng497 predict-fatigue --cap 30 --ex 0 --ey 0 --fib 90 --load-path x --peak-mpa 8
+.\.venv\Scripts\python.exe -m feng497 predict-fatigue --method direct --cap 30 --ex 0 --ey 0 --fib 90 --load-path x --peak-mpa 8
 ```
 
 Sabit genlikli ve orantılı yüklemede `R=0.1` kullanılır. `x` yalnız yatay, `y`

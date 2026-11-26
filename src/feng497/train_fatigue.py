@@ -43,22 +43,24 @@ def fit_curve_model(features, targets):
     return model.fit(features, targets), [str(w.message) for w in caught]
 
 
-def score_curves(cases, path, actual_curves, predicted_curves, baseline_curves):
+def score_curves(cases, path, actual_curves, predicted_curves, baseline_curves=None):
     tables = []
-    for case, reference, predicted, baseline in zip(
-        cases.itertuples(index=False), actual_curves, predicted_curves, baseline_curves
-    ):
+    for index, (case, reference, predicted) in enumerate(zip(
+        cases.itertuples(index=False), actual_curves, predicted_curves
+    )):
         actual_log, actual_status = life_at_peaks(reference, TEST_PEAKS_MPA)
         predicted_log, predicted_status = life_at_peaks(predicted, TEST_PEAKS_MPA)
-        baseline_log, _ = life_at_peaks(baseline, TEST_PEAKS_MPA)
-        tables.append(pd.DataFrame({
+        table = pd.DataFrame({
             "case": case.case, "split": case.split, "fib_deg": case.fib, "yukleme": path,
             "tepe_MPa": TEST_PEAKS_MPA,
             "referans_log10_cevrim": actual_log,
             "tahmin_log10_cevrim": predicted_log,
-            "lineer_log10_cevrim": baseline_log,
-            "referans_aralik": actual_status, "tahmin_aralik": predicted_status,
-        }))
+        })
+        if baseline_curves is not None:
+            table["lineer_log10_cevrim"], _ = life_at_peaks(baseline_curves[index], TEST_PEAKS_MPA)
+        table["referans_aralik"] = actual_status
+        table["tahmin_aralik"] = predicted_status
+        tables.append(table)
     return pd.concat(tables, ignore_index=True)
 
 
@@ -66,8 +68,7 @@ def metrics(rows):
     inside = rows[rows["referans_aralik"] == "aralik_ici"]
     actual = inside["referans_log10_cevrim"].to_numpy()
     error = np.abs(inside["tahmin_log10_cevrim"].to_numpy() - actual)
-    baseline_error = np.abs(inside["lineer_log10_cevrim"].to_numpy() - actual)
-    return {
+    result = {
         "plaka_sayisi": rows["case"].nunique(),
         "tum_yuk_testleri": len(rows),
         "referans_aralik_ici_yuk_testleri": len(inside),
@@ -76,8 +77,10 @@ def metrics(rows):
         "MAE_log10_cevrim": error.mean(),
         "medyan_hata_kati": 10**np.median(error),
         "P90_hata_kati": 10**np.quantile(error, 0.9),
-        "lineer_MAE_log10_cevrim": baseline_error.mean(),
     }
+    if "lineer_log10_cevrim" in inside:
+        result["lineer_MAE_log10_cevrim"] = np.abs(inside["lineer_log10_cevrim"].to_numpy() - actual).mean()
+    return result
 
 
 def make_report(predictions):

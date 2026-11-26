@@ -53,12 +53,8 @@ def first_crack_peaks(s11, s22, t12, strengths):
     return np.column_stack(limits)
 
 
-def load_training_data(data_dir):
-    paths = {name: data_dir / relative for name, relative in DATA_FILES.items()}
-    missing = [str(path) for path in paths.values() if not path.is_file()]
-    if missing:
-        raise ValueError("Yorulma paketi eksik: " + ", ".join(missing))
-    cases = pd.read_csv(paths["cases"])
+def load_unit_load_cases(path):
+    cases = pd.read_csv(path)
     expected_splits = {"train": 648, "test_interp": 100, "test_0_90": 60}
     ids = cases["case"]
     if (
@@ -73,12 +69,11 @@ def load_training_data(data_dir):
     make_features(cases)
     if cases.loc[cases["split"] == "test_0_90", "fib"].value_counts().to_dict() != {0.: 30, 90.: 30}:
         raise ValueError("Uç açı testi her açı için 30 ayrı plaka içermeli.")
+    return cases
 
-    targets = pd.read_csv(paths["targets"]).set_index("case", verify_integrity=True)
-    if set(targets.index) != set(ids) or not np.array_equal(targets.loc[ids, "split"], cases["split"]):
-        raise ValueError("Hazır hedeflerin plaka kimlikleri veya grupları eşleşmiyor.")
-    targets = targets.loc[ids]
-    sn = pd.read_csv(paths["curves"])
+
+def load_sn_strengths(path):
+    sn = pd.read_csv(path)
     sn = sn.loc[np.isclose(sn["r"], STRESS_RATIO), ["mode", "log10_N", "peak_MPa_T300_5208"]]
     sn = sn.pivot(index="log10_N", columns="mode", values="peak_MPa_T300_5208").sort_index()
     if not np.array_equal(sn.index, LOG_CYCLES) or set(sn.columns) != set(STRENGTH_MODES):
@@ -86,32 +81,59 @@ def load_training_data(data_dir):
     strengths = sn[list(STRENGTH_MODES)].to_numpy()
     if not np.isfinite(strengths).all() or (strengths <= 0).any() or (np.diff(strengths, axis=0) >= 0).any():
         raise ValueError("S–N dayanımları pozitif olmalı ve çevrim sayısıyla azalmalı.")
+    return strengths
 
-    with np.load(paths["profiles"], allow_pickle=False) as profiles:
+
+def load_unit_profiles(path, ids, components):
+    """Boyutlar sırasıyla yük ekseni, bileşen, plaka ve delik açısıdır."""
+    with np.load(path, allow_pickle=False) as profiles:
         profile_ids = pd.Index(profiles["case"])
         if not profile_ids.is_unique or set(profile_ids) != set(ids):
             raise ValueError("Gerilme profillerinin plaka kimlikleri eşleşmiyor.")
         if not np.array_equal(profiles["theta_deg"], np.arange(-180, 180)):
             raise ValueError("Delik kenarındaki 360 açının sırası değişmiş.")
         order = profile_ids.get_indexer(ids)
-        x, y = [
-            [profiles[f"{stress}_{axis}"][order] for stress in ("s11", "s22", "t12")]
+        values = np.array([
+            [profiles[f"{stress}_{axis}"][order] for stress in components]
             for axis in ("X", "Y")
-        ]
-    if any(a.shape != (len(cases), 360) or not np.isfinite(a).all() for a in [*x, *y]):
+        ])
+    if values.shape != (2, len(components), len(ids), 360) or not np.isfinite(values).all():
         raise ValueError("Delik kenarı gerilme profilleri eksik veya geçersiz.")
+    return values
 
+
+def log_peaks_from_profiles(profiles, strengths, weights):
+    x, y = profiles
+    wx, wy = weights
+    peaks = first_crack_peaks(*(wx * x + wy * y), strengths)
+    if not np.isfinite(peaks).all() or (peaks <= 0).any() or (np.diff(peaks, axis=1) >= 0).any():
+        raise ValueError("Gerilme profilinden hesaplanan S–N eşikleri geçersiz.")
+    return np.log10(peaks)
+
+
+def load_training_data(data_dir):
+    paths = {name: data_dir / relative for name, relative in DATA_FILES.items()}
+    missing = [str(path) for path in paths.values() if not path.is_file()]
+    if missing:
+        raise ValueError("Yorulma paketi eksik: " + ", ".join(missing))
+    cases = load_unit_load_cases(paths["cases"])
+    ids = cases["case"]
+    targets = pd.read_csv(paths["targets"]).set_index("case", verify_integrity=True)
+    if set(targets.index) != set(ids) or not np.array_equal(targets.loc[ids, "split"], cases["split"]):
+        raise ValueError("Hazır hedeflerin plaka kimlikleri veya grupları eşleşmiyor.")
+    targets = targets.loc[ids]
+    strengths = load_sn_strengths(paths["curves"])
+    profiles = load_unit_profiles(paths["profiles"], ids, ("s11", "s22", "t12"))
     log_peaks = {}
-    for path, (wx, wy) in LOAD_PATHS.items():
-        peaks = first_crack_peaks(*(wx * a + wy * b for a, b in zip(x, y)), strengths)
-        if not np.isfinite(peaks).all() or (peaks <= 0).any() or (np.diff(peaks, axis=1) >= 0).any():
-            raise ValueError(f"{path} için hesaplanan eşikler geçersiz.")
+    for path, weights in LOAD_PATHS.items():
+        log_curves = log_peaks_from_profiles(profiles, strengths, weights)
         suffix = path.upper() if path in ("x", "y") else path
         for exponent in (3, 6):
             reference = targets[f"fatigue_1e{exponent}_{suffix}_MPa"].to_numpy()
-            if not np.allclose(peaks[:, int(exponent / 0.25)], reference, rtol=0, atol=0.00006):
+            column = np.searchsorted(LOG_CYCLES, exponent)
+            if not np.allclose(10**log_curves[:, column], reference, rtol=0, atol=0.00006):
                 raise ValueError(f"{path} için 10^{exponent} çevrim eşiği sağlayıcının tablosuyla eşleşmiyor.")
-        log_peaks[path] = np.log10(peaks)
+        log_peaks[path] = log_curves
     return cases, log_peaks, paths
 
 

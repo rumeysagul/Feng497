@@ -16,8 +16,12 @@ COMMANDS = {
     "predict-composite": ("predict_composite", "Fiber açısıyla kompozitte ilk hasar yükünü tahmin et."),
     "train-fatigue": ("train_fatigue", "İlk yorulma çatlağı modelini S–N verisiyle eğit ve test et."),
     "predict-fatigue": ("predict_fatigue", "Verilen tekrarlı yükte ilk çatlağa kadar çevrim sayısını tahmin et."),
+    "train-hole-stress": ("train_hole_stress", "Delik kenarı gerilme dağılımı modelini eğit ve test et."),
+    "predict-hole-stress": ("predict_hole_stress", "Delik kenarındaki 360 noktada gerilme dağılımını tahmin et."),
 }
-COMMANDS_WITH_ARGS = {"predict", "predict-composite", "train-fatigue", "predict-fatigue"}
+COMMANDS_WITH_ARGS = {
+    "predict", "predict-composite", "train-fatigue", "predict-fatigue", "train-hole-stress", "predict-hole-stress",
+}
 
 
 def main(argv=None):
