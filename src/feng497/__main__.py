@@ -14,26 +14,32 @@ COMMANDS = {
     "inspect-composite": ("composite", "Kompozit verisini ve ayrılmış grupları incele."),
     "train-composite": ("train_composite", "Kompozitte ilk hasar yükü modelini eğit ve test et."),
     "predict-composite": ("predict_composite", "Fiber açısıyla kompozitte ilk hasar yükünü tahmin et."),
+    "train-fatigue": ("train_fatigue", "İlk yorulma çatlağı modelini S–N verisiyle eğit ve test et."),
+    "predict-fatigue": ("predict_fatigue", "Verilen tekrarlı yükte ilk çatlağa kadar çevrim sayısını tahmin et."),
+    "train-hole-stress": ("train_hole_stress", "Delik kenarı gerilme dağılımı modelini eğit ve test et."),
+    "predict-hole-stress": ("predict_hole_stress", "Delik kenarındaki 360 noktada gerilme dağılımını tahmin et."),
+}
+COMMANDS_WITH_ARGS = {
+    "predict", "predict-composite", "train-fatigue", "predict-fatigue", "train-hole-stress", "predict-hole-stress",
 }
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(
         prog="feng497",
-        description="Delikli plakada çelik gerilmesi ve kompozit ilk hasar yükü tahmini.",
+        description="Delikli plakada çelik gerilmesi, kompozit ilk hasar ve yorulma ömrü tahmini.",
     )
     commands = parser.add_subparsers(dest="command", required=True)
     for name, (_, description) in COMMANDS.items():
-        # predict kendi fiziksel girdi seçeneklerini ve --help çıktısını yönetir.
         commands.add_parser(
             name, help=description, description=description,
-            add_help=name not in {"predict", "predict-composite"}
+            add_help=name not in COMMANDS_WITH_ARGS,
         )
     args, remaining = parser.parse_known_args(argv)
-    if args.command not in {"predict", "predict-composite"} and remaining:
+    if args.command not in COMMANDS_WITH_ARGS and remaining:
         parser.error("Tanınmayan argümanlar: " + " ".join(remaining))
     module = import_module("." + COMMANDS[args.command][0], package="feng497")
-    if args.command in {"predict", "predict-composite"}:
+    if args.command in COMMANDS_WITH_ARGS:
         return module.main(remaining)
     return module.main()
 
